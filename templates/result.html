@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>학점 정보</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: center;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h2>성적 누계 내역</h2>
+    <table>
+        <tr>
+            <th>구분</th>
+            <th>학점</th>
+        </tr>
+        {% for key, value in course_info.items() %}
+        {% if not (key == "복전" or key == "부전") or value != 0 %}
+        <tr>
+            <td>{{ key }}</td>
+            <td>{{ value }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        <tr>
+            <th>총 취득학점</th>
+            <td>{{ total_credits }}</td>
+        </tr>
+    </table>
+
+    <h2>졸업 필요 학점</h2>
+    <table>
+        <tr>
+            <th>구분</th>
+            <th>학점</th>
+        </tr>
+        {% for key, value in course_info.items() %}
+        {% if not (key == "복전" or key == "부전") or value != 0 %}
+        <tr>
+            <td>{{ key }}</td>
+            <td>{{ value }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        <tr>
+            <th>총 취득학점</th>
+            <td>{{ total_credits }}</td>
+        </tr>
+    </table>
+</body>
+</html>

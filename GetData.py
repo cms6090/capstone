@@ -1,18 +1,76 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
-import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
-from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
+caps = DesiredCapabilities.CHROME
+caps["pageLoadStrategy"] = "none"
 
-def Crawling(username, password) -> dict:
+def ChromeSetup():
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument('--ignore-ssl-errors=yes')
+    options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-images')
+    options.add_argument("--disable-extensions")
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument("--disable-popup-blocking")
+
+    return options
+
+def closepopup(driver):
+    main = driver.window_handles
+    for i in main:
+        if i != main[0]:
+            driver.switch_to.window(i)
+            driver.close()
+
+    driver.switch_to.window(main[0])
+
+def crawl_consulting(username, password):
+    driver = webdriver.Chrome(options = ChromeSetup()) # chromedriver 설치 안해도 ㄱㅊ
+
+    # 트윈 페이지로 이동
+    twin_url = 'https://together.daejin.ac.kr/clientMain/a/t/main.do'
+    driver.get(twin_url)
+
+    closepopup(driver)
+
+    driver.find_element(By.CLASS_NAME, 'btn_log.btn_login').click()
+    time.sleep(1)
+    # 로그인 폼 채우기
+    username_input = driver.find_element(By.ID, 'userId')
+    password_input = driver.find_element(By.ID, 'userPw')
+
+    username_input.send_keys(username)
+    password_input.send_keys(password)
+    driver.find_element(By.ID, 'loginBtnStd').click()
+    closepopup(driver)
+
+
+    driver.find_element(By.CLASS_NAME, 'my_link.status').click()
+    driver.find_element(By.ID, 'cns').click()
+    time.sleep(1)
+
+    consulting_total = driver.find_element(By.ID, 'pfcCnsCnt').text
+
+    consulting_detail = {}
+    consulting_detail['1학기'] = {'1학년' : 0, '2학년' : 0, '3학년' : 0, '4학년' : 0}
+    consulting_detail['2학기'] = {'1학년' : 0, '2학년' : 0, '3학년' : 0, '4학년' : 0}
+
+    for i in range(1,3):
+        for j in range(1,5):
+            link = 'term'+str(i)+'_'+str(j)
+            consulting_detail[str(i)+'학기'][str(j)+'학년'] = driver.find_element(By.ID, link).text
+    driver.quit()
+    return consulting_total, consulting_detail
+
+def crawl_object(username, password):
     filter = ['이수영역', '년도학기', '교과목명', '학점', '성적', '구이수']
 
-    # 웹 드라이버 경로 설정
-    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install())) # 크롬 버전에 따른 chromedriver.exe를 설치해야 하므로 해당 버전에 맞는 chromedriver 설치
-    main_window_handle = driver.current_window_handle
-
+    driver = webdriver.Chrome(options = ChromeSetup()) # chromedriver 설치 안해도 ㄱㅊ
     # 로그인 페이지로 이동
     login_url = 'https://www.daejin.ac.kr/subLogin/daejin/view.do?layout=unknown'
     driver.get(login_url)
@@ -37,16 +95,7 @@ def Crawling(username, password) -> dict:
     driver.get(url)
 
     time.sleep(1)
-    new_window_handle = None
-    for handle in driver.window_handles:
-        if handle != main_window_handle:
-            new_window_handle = handle
-            break
-
-    if new_window_handle:
-        driver.switch_to.window(new_window_handle)
-        driver.close()  # 새로운 창 닫기
-        driver.switch_to.window(main_window_handle)
+    closepopup(driver)
 
     #테스트 시작
     driver.switch_to.frame('BBF')
@@ -81,17 +130,18 @@ def Crawling(username, password) -> dict:
     Course['교선6'] = {'학점' : 0, '교과목명' : []}
     Course['교선7'] = {'학점' : 0, '교과목명' : []}
     Course['교선8'] = {'학점' : 0, '교과목명' : []}
-    Course['교선8'] = {'학점' : 0, '교과목명' : []}
     Course['전필'] = {'학점' : 0, '교과목명' : []}
     Course['전선'] = {'학점' : 0, '교과목명' : []}
     Course['일선'] = {'학점' : 0, '교과목명' : []}
-    Course['부전1'] = {'학점' : 0, '교과목명' : []}
-    Course['복전1'] = {'학점' : 0, '교과목명' : []}
 
     i = 19
 
     while i < len(sub_elements):
         text = sub_elements[i].text
+        if '복전1' in text and '복전1' not in Course:
+            Course['복전1'] = {'학점' : 0, '교과목명' : []}
+        if '부전1' in text and '부전1' not in Course:
+            Course['부전1'] = {'학점' : 0, '교과목명' : []}
         if "일선 취득학점 계 : " in text:
             break
         elif ' 계 : ' in text:
@@ -109,4 +159,80 @@ def Crawling(username, password) -> dict:
                 i += 1
         else:
             i += 1
-    return Course
+    
+    require_credit_result = require_credit(Course, sub_elements)
+    require_cultural_result = require_cultural(Course, sub_elements)
+
+    driver.quit()
+    return Course, require_credit_result, require_cultural_result
+
+def crawling_main(user_id, password):
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future1 = executor.submit(crawl_object, user_id, password)
+        future2 = executor.submit(crawl_consulting, user_id, password)
+
+        # 결과를 변수에 저장
+        Course, require_credit, require_cultural = future1.result()
+        consulting_total, consulting_detail = future2.result()
+
+    return Course, require_credit, require_cultural, consulting_total, consulting_detail
+
+def require_credit(Course, sub_elements):
+    # 초기 설정
+    Require = {
+        '졸업학점': {'기준': 0, '취득': 0},
+        '졸업평점평균': {'기준': 0, '취득': 0},
+        '교필': {'기준': 0, '취득': 0},
+        '교선': {'기준': 0, '취득': 0},
+        '전기': {'기준': 0, '취득': 0},
+        '전필': {'기준': 0, '취득': 0},
+        '전선': {'기준': 0, '취득': 0},
+    }
+
+    for key, value in Course.items():
+        if '복전1' in key:
+            Require['복전1'] = {'기준': 0, '취득': 0}
+
+    # '기준'과 '취득' 값 찾기 및 업데이트
+    for offset in ['기준', '취득']:
+        keyword = '기 준' if offset == '기준' else '취 득'
+        for i in range(len(sub_elements) - 100, len(sub_elements)):
+            if keyword in sub_elements[i].text:
+                start_index = i + 1
+                break
+
+        keys = ['졸업학점', '졸업평점평균', '교필', '교선', '전기', '전필', '전선']
+        for idx, key in enumerate(keys):
+            Require[key][offset] = sub_elements[start_index + idx].text
+
+        basic = int(Require['전기']['기준'])
+        essential = int(Require['전필']['기준'])
+        Require['전선']['기준'] = str(63 - basic - essential)
+
+        if '복전1' in Course:
+            if '복전1' not in Require:
+                Require['복전1'] = {'기준': 0, '취득': 0}
+            Require['전선']['기준'] = str(42 - basic - essential) if offset == '기준' else Require['전선']['기준']
+            Require['복전1'][offset] = sub_elements[start_index + 6 if offset == '취득' else 6].text
+
+    return Require
+
+def require_cultural(Course, sub_elements):
+    for i in range(len(sub_elements)-50, len(sub_elements)):
+        text = sub_elements[i].text
+        if "기 준" in text:
+            start = i+1
+        if "취 득" in text:
+            end = i
+            break
+
+    # 필요한 이수 영역 목록을 담을 딕셔너리 초기화
+    Require_cultural = {}
+    # 추출한 j 값을 사용하여 교선 영역에 대한 정보를 딕셔너리에 저장
+
+    j = 1
+    for i in range(start, end):
+        Require_cultural["교선" + str(j)] = {'기준': sub_elements[i].text, '취득' : Course["교선"+str(j)]['학점']}
+        j += 1
+    
+    return Require_cultural

@@ -1,61 +1,107 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>학점 정보</title>
     <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        th, td {
-            border: 1px solid #dddddd;
-            text-align: center;
-            padding: 8px;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid #dddddd;
+        text-align: center;
+        padding: 8px;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h2>성적 누계 내역</h2>
     <table>
-        <tr>
-            <th>구분</th>
-            <th>학점</th>
-        </tr>
+      <tr>
+        <th>구분</th>
+        <th>학점</th>
+      </tr>
+      <tr>
         {% for key, value in course_info.items() %}
-        {% if not (key == "복전" or key == "부전") or value != 0 %}
-        <tr>
-            <td>{{ key }}</td>
-            <td>{{ value }}</td>
-        </tr>
-        {% endif %}
+        <td>{{ key }}</td>
+        <td>{{ value }}</td>
+      </tr>
         {% endfor %}
-        <tr>
-            <th>총 취득학점</th>
-            <td>{{ total_credits }}</td>
-        </tr>
+      <tr>
+        <th>총 취득학점</th>
+        <td>{{ total_credits }}</td>
+      </tr>
     </table>
-
+    <hr>
     <h2>졸업 필요 학점</h2>
     <table>
-        <tr>
-            <th>구분</th>
-            <th>학점</th>
-        </tr>
-        {% for key, value in course_info.items() %}
-        {% if not (key == "복전" or key == "부전") or value != 0 %}
-        <tr>
-            <td>{{ key }}</td>
-            <td>{{ value }}</td>
-        </tr>
-        {% endif %}
+      <tr>
+        <th>구분</th>
+        {% for key in require_credit.items() %}
+        <th>{{key[0]}}</th>
         {% endfor %}
-        <tr>
-            <th>총 취득학점</th>
-            <td>{{ total_credits }}</td>
-        </tr>
+      </tr>
+      <tr>
+        <th>기준</th>
+        {% for key, value in require_credit.items() %}
+        <td>{{ value['기준'] }}</td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <th>취득</th>
+        {% for key, value in require_credit.items() %}
+        <td>{{ value['취득'] }}</td>
+        {% endfor %}
+      </tr>
     </table>
-</body>
+    <br>
+    <table>
+      <tr>
+        <th>교양영역</th>
+        {% for key in require_cultural.items() %}
+        <th>{{key[0]}}</th>
+        {% endfor %}
+      </tr>
+      <tr>
+        <th>기준</th>
+        {% for key, value in require_cultural.items() %}
+        <td>{{ value['기준'] }}</td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <th>취득</th>
+        {% for key, value in require_cultural.items() %}
+        <td>{{ value['취득'] }}</td>
+        {% endfor %}
+      </tr>
+    </table>
+    <hr>
+    <h2>상담 이력</h2>
+    <table>
+      <tr>
+        <th>상담</th>
+        <th>1학년</th>
+        <th>2학년</th>
+        <th>3학년</th>
+        <th>4학년</th>        
+      </tr>
+      {% for key, value in consulting_detail.items() %}
+      <tr>
+        <th>{{key}}</th>
+        <td>{{value['1학년']}}</td>
+        <td>{{value['2학년']}}</td>
+        <td>{{value['3학년']}}</td>
+        <td>{{value['4학년']}}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <th>총 상담 횟수</th>
+        <td colspan="4">{{consulting_total}}</td>
+      </tr>
+    </table>
+  </body>
 </html>

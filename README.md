@@ -1,4 +1,3 @@
-```markdown
 # 🤖 CAPSTONE Project
 
 A data science project demonstrating machine learning techniques for prediction and analysis.
